@@ -6,17 +6,15 @@ import os
 from datetime import datetime
 
 
-
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 socketAddr = ('127.0.0.1', 12345)
 
-
 s.bind(socketAddr)
 
-chatRoomPassword = input(
-    "Input chat room password or ENTER for default<client> : ")
-if chatRoomPassword == '':
-    chatRoomPassword = 'client'
+serverAuthorizationKey = input(
+    "Input Server Authorization Key password or ENTER for default<client> : ")
+if serverAuthorizationKey == '':
+    serverAuthorizationKey = 'client'
 
 
 print(
@@ -54,7 +52,7 @@ def listen():
             unicastMessage(address, "You are not allowed to send or receive chat messages", 'notification')
         else:
             if body['type'] == 'registration':
-                if body['password'] != chatRoomPassword:
+                if body['password'] != serverAuthorizationKey:
                     status = [401, "Invalid password"]
                     unicastMessage(address, 'Invalid password',
                                 'notification')
