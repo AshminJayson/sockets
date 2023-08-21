@@ -2,10 +2,12 @@ import socket
 import threading
 import json
 import random
+import os
+import sys
 
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 socketAddress = ('127.0.0.1', 12345)
-# s.bind(('', random.randint(1000, 10000)))  # Enable this on windows
+s.bind(('', random.randint(1000, 10000)))  # Enable this on windows
 
 
 def listen():
@@ -19,25 +21,33 @@ def listen():
 
 
 def printToConsole(message):
-    print("\n", message)
+    print(message)
 
 
 def handleInput():
-    name = input("Enter you name:")
-    password = input("Enter passkey:")
+    try:
+        print("-- Welcome to the chat room --")
+        name = input("Username:")
+        password = input("Server authorization passkey:")
 
-    body = {
-        'name': name,
-        'password': password,
-        'type': 'registration'
-    }
+        body = {
+            'name': name,
+            'password': password,
+            'type': 'registration'
+        }
 
-    s.sendto(json.dumps(body).encode(), socketAddress)
-
-    while True:
-        text = input()
-        body = {'message': text, 'type': 'chat'}
         s.sendto(json.dumps(body).encode(), socketAddress)
+
+        while True:
+            text = input()
+            sys.stdout.write("\033[F")
+            sys.stdout.write("\033[K")
+            print("-------------------------------- You:", text)
+            body = {'message': text, 'type': 'chat'}
+            s.sendto(json.dumps(body).encode(), socketAddress)
+    except:
+        print("\nException occured")
+        os._exit(1)
 
 
 t1 = threading.Thread(target=listen)
