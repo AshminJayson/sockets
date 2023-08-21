@@ -23,9 +23,11 @@ print(
 
 clients = {}
 
+
 def formatWindow():
     sys.stdout.write("\033[F")
     sys.stdout.write("\033[K")
+
 
 def printToConsole(output):
     currentTime = datetime.now().strftime("%H:%M:%S")
@@ -45,30 +47,32 @@ def listen():
         body = json.loads(message.decode())
         status = [200, 'Served']
 
-
-        if body['type'] == 'chat' and address not in clients: 
+        if body['type'] == 'chat' and address not in clients:
             printToConsole("Unauthorized request from : {}".format(address))
             status = [401, "Unauthorized client"]
-            unicastMessage(address, "You are not allowed to send or receive chat messages", 'notification')
+            unicastMessage(
+                address, "You are not allowed to send or receive chat messages", 'notification')
         else:
             if body['type'] == 'registration':
                 if body['password'] != serverAuthorizationKey:
                     status = [401, "Invalid password"]
                     unicastMessage(address, 'Invalid password',
-                                'notification')
+                                   'notification')
                     printToConsole("Denied access to ( {} ) due to incorrect password".format(
                         body['name']))
                 else:
                     clients[address] = body['name']
                     unicastMessage(address, '-- You are now in the mix --',
-                                'notification')
-                    printToConsole("( {} ) joined the chatroom".format(body['name']))
+                                   'notification')
+                    printToConsole(
+                        "( {} ) joined the chatroom".format(body['name']))
                     broadcastMessage(body['name'] + " joined the chat",
-                                    address, 'notification')
+                                     address, 'notification')
             elif body['type'] == 'chat':
                 broadcastMessage(body['message'], address, 'chat')
 
-        printToConsole("Hit Count : {} | Last Hit from : {} | Request Type : {} | Status : {}".format(hitCount, address, body['type'], status))
+        printToConsole("Hit Count : {} | Last Hit from : {} | Request Type : {} | Status : {}".format(
+            hitCount, address, body['type'], status))
         formatWindow()
 
 
@@ -80,23 +84,25 @@ def unicastMessage(address, message, messageType):
 
 def broadcastMessage(msg, recAddress, messageType):
 
-    recName = clients[recAddress]
+    clientName = clients[recAddress]
     body = {}
 
     if messageType == 'notification':
         body = {'message': msg, 'author': 'server', 'type': messageType}
     elif messageType == 'chat':
-        body = {'message': msg, 'author': recName, 'type': messageType}
+        body = {'message': msg, 'author': clientName, 'type': messageType}
 
     for clientAddress in clients:
         if clientAddress == recAddress:
             continue
         s.sendto(json.dumps(body).encode(), clientAddress)
 
+
 def signalTerminate():
     print("Terminating server...")
     s.close()
     os._exit(1)
+
 
 def checkTerminate():
     try:
@@ -104,7 +110,6 @@ def checkTerminate():
         signalTerminate()
     finally:
         signalTerminate()
-
 
 
 t1 = threading.Thread(target=listen)
