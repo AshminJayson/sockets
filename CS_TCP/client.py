@@ -7,12 +7,16 @@ def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socketAddr = ('127.0.0.1', 12345)
 
-    try:
-        s.connect(socketAddr)
+    s.connect(socketAddr)
+    while True:
+        chat = input("Enter the message to send to server or 0 to end connection : ")
+        if chat == '0':
+            return
+        
+        s.send(chat.encode())
         message = s.recv(1024).decode()
-        print('Server message recieved : {}'.format(message))
-    except:
-        print("Invalid socket address")
+        if message != '':
+            print('Server message recieved : {}'.format(message))
 
 
 if __name__ == '__main__':
