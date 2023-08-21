@@ -10,18 +10,25 @@ socketAddress = ('127.0.0.1', 12345)
 s.bind(('', random.randint(1000, 10000)))  # Enable this on windows
 
 
+def printToConsole(message):
+    print(message)
+
+def signalTerminate():
+    print('Terminating client...')
+    s.close()
+    os._exit(1)
+
+
 def listen():
     while True:
         message, address = s.recvfrom(1024)
         body = json.loads(message.decode())
         if body['type'] == 'notification':
             printToConsole(body['message'])
+            # if body['message'] == 'Invalid password':
+                # signalTerminate()
         else:
             printToConsole('{}: {}'.format(body['author'], body['message']))
-
-
-def printToConsole(message):
-    print(message)
 
 
 def handleInput():
@@ -29,6 +36,7 @@ def handleInput():
         print("-- Welcome to the chat room --")
         name = input("Username:")
         password = input("Server authorization passkey:")
+        print("Enter q() to exit the chatroom")
 
         body = {
             'name': name,
@@ -40,6 +48,7 @@ def handleInput():
 
         while True:
             text = input()
+            if text == 'q()': signalTerminate()
             sys.stdout.write("\033[F")
             sys.stdout.write("\033[K")
             print("-------------------------------- You:", text)
@@ -47,7 +56,7 @@ def handleInput():
             s.sendto(json.dumps(body).encode(), socketAddress)
     except:
         print("\nException occured")
-        os._exit(1)
+        signalTerminate()
 
 
 t1 = threading.Thread(target=listen)
