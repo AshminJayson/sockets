@@ -7,6 +7,13 @@ from datetime import datetime
 from typing import Dict
 
 
+class MessagePayload():
+    def __init__(self, message, type, status_code, author):
+        self.message = message
+        self.type = type
+        self.status_code = status_code
+        self.author = author
+
 # ----- Logic View-----
 # Add class that handles chatroom logic
 class ChatRoom():
@@ -29,11 +36,11 @@ class ChatRoom():
 
 class Master():
     # Socket Initializer
-    def __init__(self, socketAddr, authorizationToken) -> None:
+    def __init__(self, socketAddress, authorizationToken) -> None:
         self.s: socket.socket = socket.socket(
             socket.AF_INET, socket.SOCK_DGRAM)
         self.hostname = socket.gethostname()
-        self.socketAddr = socketAddr
+        self.socketAddress = socketAddress
         self.authorizationToken = authorizationToken
         self.chatrooms: Dict[tuple: ChatRoom] = {}
 
@@ -41,7 +48,7 @@ class Master():
         self.clients: Dict[tuple: ChatRoom] = {}
         self.hitcount = 0
         # Bind server to socket
-        self.s.bind(self.socketAddr)
+        self.s.bind(self.socketAddress)
 
         # Thread for client listener
         threading.Thread(target=self._listener).start()
@@ -51,7 +58,7 @@ class Master():
 
     def _signalInit(self) -> None:
         print(
-            "- {} listening on port {} -".format(self.hostname, self.socketAddr[1]))
+            "- {} listening on port {} -".format(self.hostname, self.socketAddress[1]))
 
     def _checkTerminate(self) -> None:
         try:
@@ -77,9 +84,11 @@ class Master():
             print(payload, clientAddress)
 
             # Check authorization for every request
-            if not self._authorizeRequest(payload['AuthorizationToken']):
+            if not self._authorizeRequest(payload['authorizationToken']):
                 # Handle invalid authorization
                 print("Invalid authorization")
+                self._unicast(
+                    clientAddress, 'Invalid authorization token : Authentication Failed', 'notification')
                 continue
 
             if payload['type'] == 'registration':
@@ -91,6 +100,7 @@ class Master():
         return self.authorizationToken == authorizationToken
 
     def _registrationsHandler(self, payload, clientAddress):
+        print("Registering Client...")
         clientName, chatroomName, chatroomPasskey = payload[
             'username'], payload['chatroomName'], payload['chatroomPasskey']
         self._authorizeOrGenerateChatRoomRequest(
@@ -103,19 +113,24 @@ class Master():
             if chatroomObj.passkey == chatroomPasskey:
                 chatroomObj.addClient(clientAddress, clientName)
                 self.clients[clientAddress] = chatroomObj
+                payload = MessagePayload("You've joined the chatroom {}".format(chatroomName), 'notification', 200, 'server')
+                self._unicast(clientAddress, payload)
             else:
+                payload = MessagePayload("Invalid chatroom passkey", "notification")
                 print("Invalid chatroom passkey")
+                self._unicast(
+                    clientAddress, payload)
         else:
             chatroomObj: ChatRoom = ChatRoom(
                 chatroomName, chatroomPasskey)
             chatroomObj.addClient(clientAddress, clientName)
             self.chatrooms[chatroomName] = chatroomObj
             self.clients[clientAddress] = chatroomObj
-
+            payload = MessagePayload("Chatroom {} has been registered".format(chatroomName), 'notification', 200, 'server')
+            self._unicast(clientAddress=clientAddress, payload=payload)
         print(self.chatrooms, self.clients)
 
     # Tunneling interface / chatHandler
-
     def _chatHandler(self, payload, clientAddress, messageType):
         if clientAddress not in self.clients:
             print("Unregistered client")
@@ -123,26 +138,22 @@ class Master():
 
         message = payload['message']
         chatroomObj: ChatRoom = self.clients[clientAddress]
-        self._broadcast(clientAddress, message, 'chat', chatroomObj)
-
-    def _unicast(self, clientAddress, message): pass
-
-    def _broadcast(self, clientAddress, message, messageType, chatroomObj: ChatRoom):
         clientName = chatroomObj.clients[clientAddress]
-        reponsePayload = {}
-        if messageType == 'notification':
-            reponsePayload = {'message': message,
-                              'author': 'server', 'type': messageType}
-        elif messageType == 'chat':
-            reponsePayload = {'message': message,
-                              'author': clientName, 'type': messageType}
+        messagePayload = MessagePayload(message, 'chat', '', clientName)
+        self._broadcast(clientAddress, messagePayload, chatroomObj)
 
-        for clientAddress in self.clients:
-            if clientAddress == clientAddress:
+    def _unicast(self, clientAddress, payload: MessagePayload):
+        print("Unicast message being send...")
+        self.s.sendto(json.dumps(payload.__dict__).encode(), clientAddress)
+
+    def _broadcast(self, clientAddress, payload: MessagePayload, chatroomObj: ChatRoom):
+        print("Broadcasting message...")
+        for clientAddressIter in chatroomObj.clients:
+            if clientAddressIter == clientAddress:
                 continue
-
-        self.socketHead.sendto(json.dumps(
-            reponsePayload).encode(), clientAddress)
+            print('Client Address', clientAddressIter)
+            self.s.sendto(json.dumps(
+                payload.__dict__).encode(), clientAddressIter)
 
 
 def main():
