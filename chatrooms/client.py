@@ -48,9 +48,9 @@ class Client:
         self.s.bind(('', random.randint(1000, 10000)))
 
     def signalInit(self):
-        print("Client intiated with username {}".format(
+        print("\nClient intiated with username {}".format(
             self.username, self.socketAddress))
-        print("Connecting to server {} ...".format(self.socketAddress))
+        print("Connecting to server {} ...\n".format(self.socketAddress))
         self._establishConnection()
 
     def _establishConnection(self) -> bool:
@@ -60,7 +60,6 @@ class Client:
 
         response, address = self.s.recvfrom(1024)
         responsePayload : ResponsePayload = json.loads(response.decode(), object_hook=ResponsePayload.from_json)
-        print(responsePayload)
 
 
         if responsePayload.status_code != 401:
@@ -77,7 +76,9 @@ class Client:
             response, address = self.s.recvfrom(1024)
             payload : ResponsePayload = json.loads(response.decode(), object_hook=ResponsePayload.from_json)
             if payload.type == 'notification':
-                print(payload['message'])
+                if payload.status_code == 501:
+                    print(payload.message)
+                    self._terminateClient()
             elif payload.type == 'chat':
                 print("{} : {}".format(payload.author, payload.message))
 

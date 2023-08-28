@@ -75,6 +75,7 @@ class Master():
         try:
             input("Press ANY KEY to terminate server \n")
         finally:
+            self._broadcast(MessagePayload("Server is being terminated", "notification", 501, "server"))
             printToConsole("Terminating server...")
             self.s.close()
             os._exit(1)
