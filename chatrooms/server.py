@@ -1,12 +1,13 @@
 import socket
 import threading
 import os
-import time
 import json
 from datetime import datetime
 from typing import Dict
+import sys
 
 
+#Models
 class MessagePayload():
     def __init__(self, message, type, status_code, author):
         self.message = message
@@ -14,7 +15,7 @@ class MessagePayload():
         self.status_code = status_code
         self.author = author
 
-# ----- Logic View-----
+
 # Add class that handles chatroom logic
 class ChatRoom():
     # Initialize chatroom with name, passkey and clients list
@@ -27,13 +28,17 @@ class ChatRoom():
     def addClient(self, clientAddress: tuple, clientName: str):
         self.clients[clientAddress] = clientName
 
-
-# Unicast messaging function
-# Broadcast messging function
+    def broadcastInChat(self, clientAddress, payload: MessagePayload, serverSocket: socket.socket):
+        print("Broadcasting message to all client in chatroom {}...".format(self.chatroomName))
+        for clientAddressIter in self.clients:
+            if clientAddressIter == clientAddress:
+                continue
+            print('Client Address', clientAddressIter)
+            serverSocket.sendto(json.dumps(
+                payload.__dict__).encode(), clientAddressIter)
 
 
 # Implement master thread and tunneling interface
-
 class Master():
     # Socket Initializer
     def __init__(self, socketAddress, authorizationToken) -> None:
@@ -68,8 +73,8 @@ class Master():
             self.s.close()
             os._exit(1)
 
-    # Master listener
 
+    # Master listener
     def _listener(self):
         while True:
             request, clientAddress = None, None
@@ -128,7 +133,6 @@ class Master():
             self.clients[clientAddress] = chatroomObj
             payload = MessagePayload("Chatroom {} has been registered".format(chatroomName), 'notification', 200, 'server')
             self._unicast(clientAddress=clientAddress, payload=payload)
-        print(self.chatrooms, self.clients)
 
     # Tunneling interface / chatHandler
     def _chatHandler(self, payload, clientAddress, messageType):
@@ -140,21 +144,22 @@ class Master():
         chatroomObj: ChatRoom = self.clients[clientAddress]
         clientName = chatroomObj.clients[clientAddress]
         messagePayload = MessagePayload(message, 'chat', '', clientName)
-        self._broadcast(clientAddress, messagePayload, chatroomObj)
+        chatroomObj.broadcastInChat(clientAddress, messagePayload, self.s)
 
+    # Unicast messaging function
     def _unicast(self, clientAddress, payload: MessagePayload):
         print("Unicast message being send...")
         self.s.sendto(json.dumps(payload.__dict__).encode(), clientAddress)
 
-    def _broadcast(self, clientAddress, payload: MessagePayload, chatroomObj: ChatRoom):
-        print("Broadcasting message...")
-        for clientAddressIter in chatroomObj.clients:
+    # Broadcast messging function
+    def _broadcast(self, clientAddress, payload: MessagePayload):
+        print("Broadcasting message to all chatrooms...")
+        for clientAddressIter in self.clients:
             if clientAddressIter == clientAddress:
                 continue
             print('Client Address', clientAddressIter)
             self.s.sendto(json.dumps(
                 payload.__dict__).encode(), clientAddressIter)
-
 
 def main():
     socketAddr = ('127.0.0.1', 12345)

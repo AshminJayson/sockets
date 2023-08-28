@@ -6,6 +6,7 @@ import os
 import sys
 
 
+
 class ResponsePayload():
     def __init__(self, message, type, status_code, author):
         self.message = message
@@ -75,12 +76,13 @@ class Client:
             print(payload.message,  payload.author)
 
     def _input(self):
-        message = input()
-        if message == 'q()':
-            self._terminateClient()
-        else:
-            payload = ChatPayload(authorizationToken=self.authorizationToken, message=message)
-            self.s.sendto(json.dumps(payload.__dict__).encode(), self.socketAddress)
+        while True:
+            message = input()
+            if message == 'q()':
+                self._terminateClient()
+            else:
+                payload = ChatPayload(authorizationToken=self.authorizationToken, message=message)
+                self.s.sendto(json.dumps(payload.__dict__).encode(), self.socketAddress)
 
     def _terminateClient(self) -> None:
         print("Terminating client...")
@@ -93,7 +95,7 @@ def main():
     authorizationToken = 'd'
 
     socketAddr = ('127.0.0.1', 12345)
-    client = Client(socketAddress=socketAddr, username=username, authorizationToken=authorizationToken, chatroomName='dattebayo', chatroomPassword='d')
+    client = Client(socketAddress=socketAddr, username=username, authorizationToken=authorizationToken, chatroomName='datteba', chatroomPassword='d')
     client.signalInit();
 
 
