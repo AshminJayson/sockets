@@ -6,6 +6,14 @@ from datetime import datetime
 from typing import Dict
 import sys
 
+def consoleClear():
+    sys.stdout.write("\033[F")
+    sys.stdout.write("\033[K")
+
+def printToConsole(output):
+    currentTime = datetime.now().strftime("%H:%M:%S")
+    print("{} - {}".format(currentTime, output))
+
 
 #Models
 class MessagePayload():
@@ -29,11 +37,10 @@ class ChatRoom():
         self.clients[clientAddress] = clientName
 
     def broadcastInChat(self, clientAddress, payload: MessagePayload, serverSocket: socket.socket):
-        print("Broadcasting message to all client in chatroom {}...".format(self.chatroomName))
+        printToConsole("Broadcasting message from {} to all clients in chatroom {}...".format(self.clients[clientAddress], self.chatroomName))
         for clientAddressIter in self.clients:
             if clientAddressIter == clientAddress:
                 continue
-            print('Client Address', clientAddressIter)
             serverSocket.sendto(json.dumps(
                 payload.__dict__).encode(), clientAddressIter)
 
@@ -62,14 +69,13 @@ class Master():
         self._signalInit()
 
     def _signalInit(self) -> None:
-        print(
-            "- {} listening on port {} -".format(self.hostname, self.socketAddress[1]))
+        printToConsole("{} listening on port {} | Authorization Token : {}".format(self.hostname, self.socketAddress[1], self.authorizationToken))
 
     def _checkTerminate(self) -> None:
         try:
             input("Press ANY KEY to terminate server \n")
         finally:
-            print("Terminating server...")
+            printToConsole("Terminating server...")
             self.s.close()
             os._exit(1)
 
@@ -78,34 +84,35 @@ class Master():
     def _listener(self):
         while True:
             request, clientAddress = None, None
-            # try:
-            request, clientAddress = self.s.recvfrom(1024)
-            # except:
-            # Some random due to client, reset connection
-            # continue
+            try:
+                request, clientAddress = self.s.recvfrom(1024)
+            except Exception as ex:
+                # Some random due to client, reset connection
+                printToConsole("{} on _listener".format(ex))
+                continue
 
             self.hitcount += 1
             payload = json.loads(request.decode())
-            print(payload, clientAddress)
+            printToConsole("{} request recieved from {}".format(payload['type'], clientAddress))
 
             # Check authorization for every request
             if not self._authorizeRequest(payload['authorizationToken']):
                 # Handle invalid authorization
-                print("Invalid authorization")
+                printToConsole("Invalid authorization token from {}".format(clientAddress))
                 self._unicast(
-                    clientAddress, 'Invalid authorization token : Authentication Failed', 'notification')
+                    clientAddress, MessagePayload('Invalid authorization token : Authentication Failed', 'notification', 401, 'server'))
                 continue
 
             if payload['type'] == 'registration':
                 self._registrationsHandler(payload, clientAddress)
             elif payload['type'] == 'chat':
-                self._chatHandler(payload, clientAddress, 'chat')
+                self._chatHandler(payload, clientAddress)
 
     def _authorizeRequest(self, authorizationToken) -> bool:
         return self.authorizationToken == authorizationToken
 
     def _registrationsHandler(self, payload, clientAddress):
-        print("Registering Client...")
+        printToConsole("Registering Client {} ...".format(clientAddress))
         clientName, chatroomName, chatroomPasskey = payload[
             'username'], payload['chatroomName'], payload['chatroomPasskey']
         self._authorizeOrGenerateChatRoomRequest(
@@ -118,11 +125,12 @@ class Master():
             if chatroomObj.passkey == chatroomPasskey:
                 chatroomObj.addClient(clientAddress, clientName)
                 self.clients[clientAddress] = chatroomObj
+                printToConsole("{} - {} has joined chat room {}".format(clientName, clientAddress, chatroomName))
                 payload = MessagePayload("You've joined the chatroom {}".format(chatroomName), 'notification', 200, 'server')
                 self._unicast(clientAddress, payload)
             else:
+                printToConsole("Invalid chatroom passkey recieved from client {} - {}".format(clientAddress, clientName))
                 payload = MessagePayload("Invalid chatroom passkey", "notification")
-                print("Invalid chatroom passkey")
                 self._unicast(
                     clientAddress, payload)
         else:
@@ -131,13 +139,14 @@ class Master():
             chatroomObj.addClient(clientAddress, clientName)
             self.chatrooms[chatroomName] = chatroomObj
             self.clients[clientAddress] = chatroomObj
-            payload = MessagePayload("Chatroom {} has been registered".format(chatroomName), 'notification', 200, 'server')
+            printToConsole("Chatroom {} has been registered".format(chatroomName))
+            payload = MessagePayload("Chatroom {} has been registered upon request from {}".format(chatroomName, clientAddress), 'notification', 200, 'server')
             self._unicast(clientAddress=clientAddress, payload=payload)
 
     # Tunneling interface / chatHandler
-    def _chatHandler(self, payload, clientAddress, messageType):
+    def _chatHandler(self, payload, clientAddress):
         if clientAddress not in self.clients:
-            print("Unregistered client")
+            printToConsole("Unregistered client {} denied from access to chat handler".format(clientAddress))
             return
 
         message = payload['message']
@@ -148,22 +157,22 @@ class Master():
 
     # Unicast messaging function
     def _unicast(self, clientAddress, payload: MessagePayload):
-        print("Unicast message being send...")
+        printToConsole("Unicast message sent to {}".format(clientAddress))
         self.s.sendto(json.dumps(payload.__dict__).encode(), clientAddress)
 
     # Broadcast messging function
-    def _broadcast(self, clientAddress, payload: MessagePayload):
-        print("Broadcasting message to all chatrooms...")
-        for clientAddressIter in self.clients:
-            if clientAddressIter == clientAddress:
-                continue
-            print('Client Address', clientAddressIter)
+    def _broadcast(self, payload: MessagePayload):
+        printToConsole("Broadcasting notification {} to all chatrooms".format(payload.message))
+        for clientAddress in self.clients.keys():
             self.s.sendto(json.dumps(
-                payload.__dict__).encode(), clientAddressIter)
+                payload.__dict__).encode(), clientAddress)
 
 def main():
     socketAddr = ('127.0.0.1', 12345)
-    master = Master(socketAddr, 'd')
+    authorizationToken = input("Enter server authorization token or press ENTER for default<admin>: ")
+    if authorizationToken == '':
+        authorizationToken = 'admin'
+    master = Master(socketAddress=socketAddr, authorizationToken=authorizationToken)
 
 
 main()

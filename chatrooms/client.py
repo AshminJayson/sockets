@@ -5,7 +5,9 @@ import random
 import os
 import sys
 
-
+def consoleClear():
+    sys.stdout.write("\033[F")
+    sys.stdout.write("\033[K")
 
 class ResponsePayload():
     def __init__(self, message, type, status_code, author):
@@ -67,21 +69,29 @@ class Client:
             threading.Thread(target=self._input).start()
         else:
             #Terminate upon invalid authentication 
+            print("Invalid authorization token...")
             os._exit(1)
 
     def _listener(self):
         while True:
             response, address = self.s.recvfrom(1024)
             payload : ResponsePayload = json.loads(response.decode(), object_hook=ResponsePayload.from_json)
-            print(payload.message,  payload.author)
+            if payload.type == 'notification':
+                print(payload['message'])
+            elif payload.type == 'chat':
+                print("{} : {}".format(payload.author, payload.message))
 
     def _input(self):
+        print("Enter q() to terminate client")
         while True:
-            message = input()
-            if message == 'q()':
+            text = input()
+            if text == 'q()':
                 self._terminateClient()
             else:
-                payload = ChatPayload(authorizationToken=self.authorizationToken, message=message)
+                sys.stdout.write("\033[F")
+                sys.stdout.write("\033[K")
+                print("You:", text)
+                payload = ChatPayload(authorizationToken=self.authorizationToken, message=text)
                 self.s.sendto(json.dumps(payload.__dict__).encode(), self.socketAddress)
 
     def _terminateClient(self) -> None:
@@ -91,11 +101,18 @@ class Client:
 
 
 def main():
-    username = input("Enter username: ")
-    authorizationToken = 'd'
-
+    print("Heyy let's get talkin......")
     socketAddr = ('127.0.0.1', 12345)
-    client = Client(socketAddress=socketAddr, username=username, authorizationToken=authorizationToken, chatroomName='datteba', chatroomPassword='d')
+
+    username = input("Enter username: ")
+    authorizationToken = input("Enter server authorization token: ")
+
+    print("\nEnter chatroom name and password")
+    print("If chatroom does not exist, it'll then be created with the given credentials")
+    chatroomName = input("Enter chat room name: ")
+    chatroomPassword = input("Enter chatroom password: ")
+    
+    client = Client(socketAddress=socketAddr, username=username, authorizationToken=authorizationToken, chatroomName=chatroomName, chatroomPassword=chatroomPassword)
     client.signalInit();
 
 
