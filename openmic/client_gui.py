@@ -127,10 +127,6 @@ def listen():
         printToConsole('{}: {}'.format(body['author'], body['message']))
 
 
-
-
-
-
 def swithcher():
     while q:
         data, operation = q.popleft()
