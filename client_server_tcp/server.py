@@ -1,8 +1,3 @@
-# Ashmin Jayson S7 DS 14
-# Experiment 2 : Client Server communication using TCP
-# Date : 18/8/23
-
-
 import socket
 
 
