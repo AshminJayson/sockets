@@ -62,7 +62,7 @@ def listen():
                         body['name']))
                 else:
                     clients[address] = body['name']
-                    unicastMessage(address, '-- You are now in the mix --',
+                    unicastMessage(address, 'Login Successfull',
                                    'notification')
                     printToConsole(
                         "( {} ) joined the chatroom".format(body['name']))
