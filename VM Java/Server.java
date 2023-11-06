@@ -48,7 +48,6 @@ public class Server
                 }
                 catch(IOException i)
                 {
-System.out.println("Shit exception only");
                     System.out.println(i);
                 }
             }
